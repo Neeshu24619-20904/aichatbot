@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scaler Personas — AI Chatbot</title>
+
+<style>
+:root{
+  --bg:#0b1020; --panel:#121933; --border:#243064;
+  --text:#e8ecff; --accent:#7c5cff;
+  --user:#2a3568; --bot:#172046;
+}
+body{
+  margin:0;
+  font-family:sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+header{padding:12px;border-bottom:1px solid var(--border);}
+.persona-bar{display:flex;gap:10px;padding:10px;}
+.persona-tab{padding:8px 12px;border-radius:10px;background:var(--panel);cursor:pointer;}
+.persona-tab.active{background:var(--accent);}
+main{max-width:800px;margin:auto;padding:10px;}
+#chat{min-height:300px;display:flex;flex-direction:column;gap:10px;}
+.msg{display:flex;gap:8px;}
+.msg.user{justify-content:flex-end;}
+.bubble{padding:10px;border-radius:10px;}
+.msg.user .bubble{background:var(--user);}
+.msg.bot .bubble{background:var(--bot);}
+textarea{width:100%;padding:10px;margin-top:10px;}
+button{padding:10px;margin-top:5px;background:var(--accent);color:white;border:none;}
+</style>
+</head>
+
+<body>
+
+<header>Scaler Personas Chat</header>
+
+<div class="persona-bar" id="personaBar"></div>
+
+<main>
+  <div id="chat"></div>
+  <textarea id="input" placeholder="Ask something..."></textarea>
+  <button onclick="sendMessage()">Send</button>
+</main>
+
+<script>
+const PERSONAS = {
+  anshuman: { name: "Anshuman Singh" },
+  abhimanyu: { name: "Abhimanyu Saxena" },
+  kshitij: { name: "Kshitij Mishra" }
+};
+
+const state = {
+  persona: "anshuman",
+  history: []
+};
+
+const chatEl = document.getElementById("chat");
+
+// Render persona buttons
+function renderPersonas(){
+  const bar = document.getElementById("personaBar");
+  bar.innerHTML = "";
+  Object.keys(PERSONAS).forEach(p=>{
+    const btn = document.createElement("button");
+    btn.className = "persona-tab" + (p===state.persona?" active":"");
+    btn.innerText = PERSONAS[p].name;
+    btn.onclick = ()=>{
+      state.persona = p;
+      state.history = [];
+      render();
+      renderPersonas();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+// Render chat
+function render(){
+  chatEl.innerHTML = "";
+  state.history.forEach(m=>{
+    const div = document.createElement("div");
+    div.className = "msg " + (m.role==="user"?"user":"bot");
+    div.innerHTML = `<div class="bubble">${m.content}</div>`;
+    chatEl.appendChild(div);
+  });
+}
+
+// Send message
+async function sendMessage(){
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+  if(!text) return;
+
+  state.history.push({role:"user", content:text});
+  input.value = "";
+  render();
+
+  try{
+    const res = await fetch("http://localhost:5000/chat", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        persona: state.persona,
+        messages: state.history
+      })
+    });
+
+    if(!res.ok) throw new Error("Server error");
+
+    const data = await res.json();
+    state.history.push({role:"assistant", content:data.reply});
+
+  }catch(e){
+    state.history.push({role:"assistant", content:"⚠️ Error: "+e.message});
+  }
+
+  render();
+}
+
+renderPersonas();
+render();
+</script>
+
+</body>
+</html>
